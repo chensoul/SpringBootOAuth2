@@ -30,8 +30,8 @@ public class WebClientConfig {
 		WebClient webClient = WebClient.builder()
 				.apply(oauth2Client.oauth2Configuration())
 				.build();
-		WebClientAdapter client = WebClientAdapter.forClient(webClient);
-		return HttpServiceProxyFactory.builder(client).build();
+		WebClientAdapter client = WebClientAdapter.create(webClient);
+		return HttpServiceProxyFactory.builderFor(client).build();
 	}
 	
 	@Bean
