@@ -15,43 +15,43 @@ import org.springframework.web.service.invoker.HttpServiceProxyFactory;
 
 @Configuration
 public class WebClientConfig {
-	
-	@Bean
-	public WelcomeClient welcomeClient(OAuth2AuthorizedClientManager authorizedClientManager) throws Exception {
-		return httpServiceProxyFactory(authorizedClientManager).createClient(WelcomeClient.class);
-	}
-	
-	private HttpServiceProxyFactory httpServiceProxyFactory(OAuth2AuthorizedClientManager authorizedClientManager) {
-		ServletOAuth2AuthorizedClientExchangeFilterFunction oauth2Client = 
-	            new ServletOAuth2AuthorizedClientExchangeFilterFunction(authorizedClientManager);
-	    
-	    //oauth2Client.setDefaultClientRegistrationId("myoauth2");
-	    oauth2Client.setDefaultOAuth2AuthorizedClient(true);
-		WebClient webClient = WebClient.builder()
-				.apply(oauth2Client.oauth2Configuration())
-				.build();
-		WebClientAdapter client = WebClientAdapter.forClient(webClient);
-		return HttpServiceProxyFactory.builder(client).build();
-	}
-	
-	@Bean
-	public OAuth2AuthorizedClientManager authorizedClientManager(
-	        ClientRegistrationRepository clientRegistrationRepository,
-	        OAuth2AuthorizedClientRepository authorizedClientRepository) {
-	    
-	    OAuth2AuthorizedClientProvider authorizedClientProvider = 
-	            OAuth2AuthorizedClientProviderBuilder.builder()
-	            .authorizationCode()
-	            .refreshToken()
-	            .build();
-	    
-	    DefaultOAuth2AuthorizedClientManager authorizedClientManager =
-	            new DefaultOAuth2AuthorizedClientManager(
-	                    clientRegistrationRepository, authorizedClientRepository);
-	   
-	    authorizedClientManager.setAuthorizedClientProvider(authorizedClientProvider);
 
-	    return authorizedClientManager;
-	}
+    @Bean
+    public WelcomeClient welcomeClient(OAuth2AuthorizedClientManager authorizedClientManager) throws Exception {
+        return httpServiceProxyFactory(authorizedClientManager).createClient(WelcomeClient.class);
+    }
+
+    private HttpServiceProxyFactory httpServiceProxyFactory(OAuth2AuthorizedClientManager authorizedClientManager) {
+        ServletOAuth2AuthorizedClientExchangeFilterFunction oauth2Client =
+                new ServletOAuth2AuthorizedClientExchangeFilterFunction(authorizedClientManager);
+
+        //oauth2Client.setDefaultClientRegistrationId("myoauth2");
+        oauth2Client.setDefaultOAuth2AuthorizedClient(true);
+        WebClient webClient = WebClient.builder()
+                .apply(oauth2Client.oauth2Configuration())
+                .build();
+        WebClientAdapter client = WebClientAdapter.create(webClient);
+        return HttpServiceProxyFactory.builderFor(client).build();
+    }
+
+    @Bean
+    public OAuth2AuthorizedClientManager authorizedClientManager(
+            ClientRegistrationRepository clientRegistrationRepository,
+            OAuth2AuthorizedClientRepository authorizedClientRepository) {
+
+        OAuth2AuthorizedClientProvider authorizedClientProvider =
+                OAuth2AuthorizedClientProviderBuilder.builder()
+                        .authorizationCode()
+                        .refreshToken()
+                        .build();
+
+        DefaultOAuth2AuthorizedClientManager authorizedClientManager =
+                new DefaultOAuth2AuthorizedClientManager(
+                        clientRegistrationRepository, authorizedClientRepository);
+
+        authorizedClientManager.setAuthorizedClientProvider(authorizedClientProvider);
+
+        return authorizedClientManager;
+    }
 
 }
