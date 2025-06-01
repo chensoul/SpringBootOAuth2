@@ -80,14 +80,14 @@ public class SecurityConfig {
         return http.build();
     }
 
-    @Bean
-    public UserDetailsService userDetailsService() {
-        var user1 = User.withUsername("user")
-                .password(passwordEncoder().encode("password"))
-                .authorities("read")
-                .build();
-        return new InMemoryUserDetailsManager(user1);
-    }
+//    @Bean
+//    public UserDetailsService userDetailsService() {
+//        var user1 = User.withUsername("user")
+//                .password(passwordEncoder().encode("password"))
+//                .authorities("read")
+//                .build();
+//        return new InMemoryUserDetailsManager(user1);
+//    }
 
     @Bean
     public PasswordEncoder passwordEncoder() {
