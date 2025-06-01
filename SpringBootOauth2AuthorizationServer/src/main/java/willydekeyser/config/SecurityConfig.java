@@ -61,7 +61,9 @@ public class SecurityConfig {
 
         http.with(OAuth2AuthorizationServerConfigurer.authorizationServer(), Customizer.withDefaults());
 
-        http.getConfigurer(OAuth2AuthorizationServerConfigurer.class).oidc(Customizer.withDefaults());
+        http.getConfigurer(OAuth2AuthorizationServerConfigurer.class).tokenEndpoint(tokenendpoint->
+                        tokenendpoint.accessTokenResponseHandler(new CustomAccessTokenResponseHandler()))
+                .oidc(Customizer.withDefaults());
 
         http.exceptionHandling(e -> e
                 .authenticationEntryPoint(new LoginUrlAuthenticationEntryPoint("/login")));
