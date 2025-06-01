@@ -42,18 +42,23 @@ public class SecurityConfig {
 
 	@Bean
 	@Order(1)
-	public SecurityFilterChain asSecurityFilterChain(HttpSecurity http) throws Exception {
-		
-		OAuth2AuthorizationServerConfiguration.applyDefaultSecurity(http);
+	public SecurityFilterChain authorizationServerSecurityFilterChain(HttpSecurity http) throws Exception {
+		OAuth2AuthorizationServerConfigurer authorizationServerConfigurer = authorizationServer();
 
-		return http
-				.getConfigurer(OAuth2AuthorizationServerConfigurer.class).oidc(withDefaults())
-				.and()
-				.exceptionHandling(e -> e
-				.authenticationEntryPoint(new LoginUrlAuthenticationEntryPoint("/login")))
-				.oauth2ResourceServer(OAuth2ResourceServerConfigurer::jwt)
-				.build();
+		http.securityMatcher(authorizationServerConfigurer.getEndpointsMatcher())
+				.with(authorizationServerConfigurer, (authorizationServer) ->
+						authorizationServer.oidc(Customizer.withDefaults())
+				)
+				.authorizeHttpRequests((authorize) ->
+						authorize.anyRequest().authenticated()
+				)
+				.exceptionHandling((exceptions) -> exceptions
+						.authenticationEntryPoint(
+								new LoginUrlAuthenticationEntryPoint("/login")
+						)
+				);
 
+		return http.build();
 	}
 
 	@Bean
@@ -114,14 +119,14 @@ public class SecurityConfig {
 		return (jwkSelector, securityContext) -> jwkSelector.select(jwkSet);
 	}
 
-	public static RSAKey generateRsa() {
+	private RSAKey generateRsa() {
 		KeyPair keyPair = generateRsaKey();
 		RSAPublicKey publicKey = (RSAPublicKey) keyPair.getPublic();
 		RSAPrivateKey privateKey = (RSAPrivateKey) keyPair.getPrivate();
 		return new RSAKey.Builder(publicKey).privateKey(privateKey).keyID(UUID.randomUUID().toString()).build();
 	}
 
-	static KeyPair generateRsaKey() {
+	private KeyPair generateRsaKey() {
 		KeyPair keyPair;
 		try {
 			KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance("RSA");
