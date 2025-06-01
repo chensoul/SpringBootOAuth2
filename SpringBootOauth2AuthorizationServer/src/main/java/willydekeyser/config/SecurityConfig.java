@@ -32,20 +32,28 @@ import java.security.interfaces.RSAPrivateKey;
 import java.security.interfaces.RSAPublicKey;
 import java.util.UUID;
 
+import static org.springframework.security.oauth2.server.authorization.config.annotation.web.configurers.OAuth2AuthorizationServerConfigurer.authorizationServer;
+
 @SuppressWarnings("deprecation")
 @Configuration
 public class SecurityConfig {
     @Bean
     @Order(1)
     public SecurityFilterChain authorizationServerSecurityFilterChain(HttpSecurity http) throws Exception {
-        OAuth2AuthorizationServerConfigurer authorizationServerConfigurer =
-                OAuth2AuthorizationServerConfigurer.authorizationServer();
-        http.securityMatcher(authorizationServerConfigurer.getEndpointsMatcher())
-                .with(authorizationServerConfigurer, Customizer.withDefaults());
+        OAuth2AuthorizationServerConfigurer authorizationServerConfigurer = authorizationServer();
 
-        http.getConfigurer(OAuth2AuthorizationServerConfigurer.class).oidc(Customizer.withDefaults());
-        http.exceptionHandling(e -> e
-                .authenticationEntryPoint(new LoginUrlAuthenticationEntryPoint("/login")));
+        http.securityMatcher(authorizationServerConfigurer.getEndpointsMatcher())
+                .with(authorizationServerConfigurer, (authorizationServer) ->
+                        authorizationServer.oidc(Customizer.withDefaults())
+                )
+                .authorizeHttpRequests((authorize) ->
+                        authorize.anyRequest().authenticated()
+                )
+                .exceptionHandling((exceptions) -> exceptions
+                        .authenticationEntryPoint(
+                                new LoginUrlAuthenticationEntryPoint("/login")
+                        )
+                );
 
         return http.build();
     }
