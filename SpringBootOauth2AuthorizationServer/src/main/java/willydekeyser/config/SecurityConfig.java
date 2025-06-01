@@ -9,6 +9,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.password.NoOpPasswordEncoder;
@@ -32,33 +33,12 @@ import java.security.interfaces.RSAPrivateKey;
 import java.security.interfaces.RSAPublicKey;
 import java.util.UUID;
 
-@SuppressWarnings("deprecation")
+@EnableWebSecurity(debug = true)
 @Configuration
 public class SecurityConfig {
-
-    public static RSAKey generateRsa() {
-        KeyPair keyPair = generateRsaKey();
-        RSAPublicKey publicKey = (RSAPublicKey) keyPair.getPublic();
-        RSAPrivateKey privateKey = (RSAPrivateKey) keyPair.getPrivate();
-        return new RSAKey.Builder(publicKey).privateKey(privateKey).keyID(UUID.randomUUID().toString()).build();
-    }
-
-    static KeyPair generateRsaKey() {
-        KeyPair keyPair;
-        try {
-            KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance("RSA");
-            keyPairGenerator.initialize(2048);
-            keyPair = keyPairGenerator.generateKeyPair();
-        } catch (Exception ex) {
-            throw new IllegalStateException(ex);
-        }
-        return keyPair;
-    }
-
     @Bean
     @Order(1)
-    public SecurityFilterChain asSecurityFilterChain(HttpSecurity http) throws Exception {
-
+    public SecurityFilterChain authorizationServerSecurityFilterChain(HttpSecurity http) throws Exception {
         http.with(OAuth2AuthorizationServerConfigurer.authorizationServer(), Customizer.withDefaults());
 
         http.getConfigurer(OAuth2AuthorizationServerConfigurer.class).oidc(Customizer.withDefaults());
@@ -71,7 +51,7 @@ public class SecurityConfig {
 
     @Bean
     @Order(2)
-    public SecurityFilterChain appSecurityFilterChain(HttpSecurity http) throws Exception {
+    SecurityFilterChain defaultSecurityFilterChain(HttpSecurity http) throws Exception {
         http.authorizeHttpRequests((authorize) -> authorize.anyRequest().authenticated())
                 .formLogin(Customizer.withDefaults());
         return http.build();
@@ -130,5 +110,24 @@ public class SecurityConfig {
         RSAKey rsaKey = generateRsa();
         JWKSet jwkSet = new JWKSet(rsaKey);
         return (jwkSelector, securityContext) -> jwkSelector.select(jwkSet);
+    }
+
+    private RSAKey generateRsa() {
+        KeyPair keyPair = generateRsaKey();
+        RSAPublicKey publicKey = (RSAPublicKey) keyPair.getPublic();
+        RSAPrivateKey privateKey = (RSAPrivateKey) keyPair.getPrivate();
+        return new RSAKey.Builder(publicKey).privateKey(privateKey).keyID(UUID.randomUUID().toString()).build();
+    }
+
+    private KeyPair generateRsaKey() {
+        KeyPair keyPair;
+        try {
+            KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance("RSA");
+            keyPairGenerator.initialize(2048);
+            keyPair = keyPairGenerator.generateKeyPair();
+        } catch (Exception ex) {
+            throw new IllegalStateException(ex);
+        }
+        return keyPair;
     }
 }
