@@ -21,6 +21,7 @@ import org.springframework.security.oauth2.server.authorization.client.Registere
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClientRepository;
 import org.springframework.security.oauth2.server.authorization.config.annotation.web.configurers.OAuth2AuthorizationServerConfigurer;
 import org.springframework.security.oauth2.server.authorization.settings.AuthorizationServerSettings;
+import org.springframework.security.oauth2.server.authorization.settings.ClientSettings;
 import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.LoginUrlAuthenticationEntryPoint;
@@ -85,10 +86,14 @@ public class SecurityConfig {
         RegisteredClient registeredClient = RegisteredClient.withId(UUID.randomUUID().toString())
                 .clientId("client")
                 .clientSecret("secret")
+                .scope("read")
                 .scope(OidcScopes.OPENID)
+                .scope(OidcScopes.PROFILE)
                 .redirectUri("http://127.0.0.1:8080/login/oauth2/code/myoauth2")
                 .clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_BASIC)
                 .authorizationGrantType(AuthorizationGrantType.AUTHORIZATION_CODE)
+                .authorizationGrantType(AuthorizationGrantType.REFRESH_TOKEN)
+                .clientSettings(clientSettings())
                 .build();
 
         return new InMemoryRegisteredClientRepository(registeredClient);
@@ -97,6 +102,13 @@ public class SecurityConfig {
     @Bean
     public AuthorizationServerSettings authorizationServerSettings() {
         return AuthorizationServerSettings.builder().build();
+    }
+
+    @Bean
+    ClientSettings clientSettings() {
+        return ClientSettings.builder()
+                .requireProofKey(true)
+                .build();
     }
 
     @Bean
