@@ -7,16 +7,25 @@ import com.nimbusds.jose.proc.SecurityContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
+import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.password.NoOpPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.core.AuthorizationGrantType;
 import org.springframework.security.oauth2.core.ClientAuthenticationMethod;
+import org.springframework.security.oauth2.core.OAuth2Token;
 import org.springframework.security.oauth2.core.oidc.OidcScopes;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
+import org.springframework.security.oauth2.server.authorization.InMemoryOAuth2AuthorizationConsentService;
+import org.springframework.security.oauth2.server.authorization.InMemoryOAuth2AuthorizationService;
+import org.springframework.security.oauth2.server.authorization.OAuth2AuthorizationConsentService;
+import org.springframework.security.oauth2.server.authorization.OAuth2AuthorizationService;
+import org.springframework.security.oauth2.server.authorization.authentication.OAuth2ClientAuthenticationToken;
 import org.springframework.security.oauth2.server.authorization.client.InMemoryRegisteredClientRepository;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClient;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClientRepository;
@@ -26,16 +35,23 @@ import org.springframework.security.oauth2.server.authorization.settings.Authori
 import org.springframework.security.oauth2.server.authorization.settings.ClientSettings;
 import org.springframework.security.oauth2.server.authorization.settings.OAuth2TokenFormat;
 import org.springframework.security.oauth2.server.authorization.settings.TokenSettings;
+import org.springframework.security.oauth2.server.authorization.token.*;
 import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.AuthenticationConverter;
 import org.springframework.security.web.authentication.LoginUrlAuthenticationEntryPoint;
+import willydekeyser.model.CustomPasswordUser;
 
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.interfaces.RSAPrivateKey;
 import java.security.interfaces.RSAPublicKey;
 import java.time.Duration;
+import java.util.List;
+import java.util.Set;
 import java.util.UUID;
+import java.util.function.Consumer;
+import java.util.stream.Collectors;
 
 import static org.springframework.security.config.Customizer.withDefaults;
 
@@ -67,13 +83,28 @@ public class SecurityConfig {
     public SecurityFilterChain asSecurityFilterChain(HttpSecurity http) throws Exception {
         http.with(OAuth2AuthorizationServerConfigurer.authorizationServer(), Customizer.withDefaults());
 
-        http.getConfigurer(OAuth2AuthorizationServerConfigurer.class).oidc(Customizer.withDefaults());
+        http.getConfigurer(OAuth2AuthorizationServerConfigurer.class)
+                .tokenEndpoint(tokenEndpoint -> tokenEndpoint
+                        .accessTokenRequestConverter(new CustomPassordAuthenticationConverter())
+                        .authenticationProvider(new CustomPassordAuthenticationProvider(authorizationService(), tokenGenerator(), userDetailsService()))
+                        .accessTokenRequestConverters(getConverters())
+                        .authenticationProviders(getProviders()))
+                .oidc(Customizer.withDefaults());
 
         http.exceptionHandling(e -> e
                 .authenticationEntryPoint(new LoginUrlAuthenticationEntryPoint("/login")));
 
         return http.build();
     }
+
+    private Consumer<List<AuthenticationProvider>> getProviders() {
+        return a -> a.forEach(System.out::println);
+    }
+
+    private Consumer<List<AuthenticationConverter>> getConverters() {
+        return a -> a.forEach(System.out::println);
+    }
+
 
     @Bean
     @Order(2)
@@ -86,10 +117,20 @@ public class SecurityConfig {
     }
 
     @Bean
+    public OAuth2AuthorizationService authorizationService() {
+        return new InMemoryOAuth2AuthorizationService();
+    }
+
+    @Bean
+    public OAuth2AuthorizationConsentService oAuth2AuthorizationConsentService() {
+        return new InMemoryOAuth2AuthorizationConsentService();
+    }
+
+    @Bean
     public UserDetailsService userDetailsService() {
         var user1 = User.withUsername("user")
                 .password("password")
-                .authorities("read")
+                .authorities("read", "test")
                 .build();
         return new InMemoryUserDetailsManager(user1);
     }
@@ -109,6 +150,7 @@ public class SecurityConfig {
                 .scope(OidcScopes.PROFILE)
                 .scope("message.read")
                 .scope("message.write")
+                .scope("read")
                 .redirectUri("http://127.0.0.1:8080/login/oauth2/code/myoauth2")
                 .redirectUri("http://insomnia")
                 .clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_BASIC)
@@ -116,6 +158,7 @@ public class SecurityConfig {
                 .authorizationGrantType(AuthorizationGrantType.AUTHORIZATION_CODE)
                 .authorizationGrantType(AuthorizationGrantType.REFRESH_TOKEN)
                 .authorizationGrantType(AuthorizationGrantType.JWT_BEARER)
+                .authorizationGrantType(new AuthorizationGrantType("custom_password"))
                 .tokenSettings(tokenSettings())
                 .clientSettings(clientSettings())
                 .build();
@@ -144,6 +187,32 @@ public class SecurityConfig {
     @Bean
     public JwtDecoder jwtDecoder(JWKSource<SecurityContext> jwkSource) {
         return OAuth2AuthorizationServerConfiguration.jwtDecoder(jwkSource);
+    }
+
+    @Bean
+    public OAuth2TokenGenerator<? extends OAuth2Token> tokenGenerator() {
+        NimbusJwtEncoder jwtEncoder = new NimbusJwtEncoder(jwkSource());
+        JwtGenerator jwtGenerator = new JwtGenerator(jwtEncoder);
+        jwtGenerator.setJwtCustomizer(tokenCustomizer());
+        OAuth2AccessTokenGenerator accessTokenGenerator = new OAuth2AccessTokenGenerator();
+        OAuth2RefreshTokenGenerator refreshTokenGenerator = new OAuth2RefreshTokenGenerator();
+        return new DelegatingOAuth2TokenGenerator(
+                jwtGenerator, accessTokenGenerator, refreshTokenGenerator);
+    }
+
+    @Bean
+    public OAuth2TokenCustomizer<JwtEncodingContext> tokenCustomizer() {
+        return context -> {
+            OAuth2ClientAuthenticationToken principal = context.getPrincipal();
+            CustomPasswordUser user = (CustomPasswordUser) principal.getDetails();
+            Set<String> authorities = user.authorities().stream()
+                    .map(GrantedAuthority::getAuthority)
+                    .collect(Collectors.toSet());
+            if (context.getTokenType().getValue().equals("access_token")) {
+                context.getClaims().claim("authorities", authorities)
+                        .claim("user", user.username());
+            }
+        };
     }
 
     @Bean
