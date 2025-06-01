@@ -34,6 +34,7 @@ import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.interfaces.RSAPrivateKey;
 import java.security.interfaces.RSAPublicKey;
+import java.time.Duration;
 import java.util.UUID;
 
 import static org.springframework.security.config.Customizer.withDefaults;
@@ -100,16 +101,21 @@ public class SecurityConfig {
 
     @Bean
     public RegisteredClientRepository registeredClientRepository() {
-        RegisteredClient registeredClient = RegisteredClient.withId(UUID.randomUUID().toString())
+        RegisteredClient registeredClient = RegisteredClient.withId("client")
                 .clientId("client")
                 .clientSecret("secret")
                 .scope("read")
                 .scope(OidcScopes.OPENID)
                 .scope(OidcScopes.PROFILE)
+                .scope("message.read")
+                .scope("message.write")
                 .redirectUri("http://127.0.0.1:8080/login/oauth2/code/myoauth2")
+                .redirectUri("http://insomnia")
                 .clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_BASIC)
+                .authorizationGrantType(AuthorizationGrantType.CLIENT_CREDENTIALS)
                 .authorizationGrantType(AuthorizationGrantType.AUTHORIZATION_CODE)
                 .authorizationGrantType(AuthorizationGrantType.REFRESH_TOKEN)
+                .authorizationGrantType(AuthorizationGrantType.JWT_BEARER)
                 .tokenSettings(tokenSettings())
                 .clientSettings(clientSettings())
                 .build();
@@ -120,7 +126,8 @@ public class SecurityConfig {
     @Bean
     TokenSettings tokenSettings() {
         return TokenSettings.builder()
-                .accessTokenFormat(OAuth2TokenFormat.REFERENCE)
+                .accessTokenFormat(OAuth2TokenFormat.SELF_CONTAINED)
+                .accessTokenTimeToLive(Duration.ofDays(1))
                 .build();
     }
 
