@@ -83,28 +83,13 @@ public class SecurityConfig {
     public SecurityFilterChain asSecurityFilterChain(HttpSecurity http) throws Exception {
         http.with(OAuth2AuthorizationServerConfigurer.authorizationServer(), Customizer.withDefaults());
 
-        http.getConfigurer(OAuth2AuthorizationServerConfigurer.class)
-                .tokenEndpoint(tokenEndpoint -> tokenEndpoint
-                        .accessTokenRequestConverter(new CustomPassordAuthenticationConverter())
-                        .authenticationProvider(new CustomPassordAuthenticationProvider(authorizationService(), tokenGenerator(), userDetailsService()))
-                        .accessTokenRequestConverters(getConverters())
-                        .authenticationProviders(getProviders()))
-                .oidc(Customizer.withDefaults());
+        http.getConfigurer(OAuth2AuthorizationServerConfigurer.class).oidc(Customizer.withDefaults());
 
         http.exceptionHandling(e -> e
                 .authenticationEntryPoint(new LoginUrlAuthenticationEntryPoint("/login")));
 
         return http.build();
     }
-
-    private Consumer<List<AuthenticationProvider>> getProviders() {
-        return a -> a.forEach(System.out::println);
-    }
-
-    private Consumer<List<AuthenticationConverter>> getConverters() {
-        return a -> a.forEach(System.out::println);
-    }
-
 
     @Bean
     @Order(2)
